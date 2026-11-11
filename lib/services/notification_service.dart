@@ -24,16 +24,16 @@ class NotificationService {
 
   bool get _isMobile => Platform.isAndroid || Platform.isIOS;
 
-  static final NotificationDetails _timerDetails = NotificationDetails(
-    android: const AndroidNotificationDetails(
+  static final NotificationDetails _timerDetails = const NotificationDetails(
+    android: AndroidNotificationDetails(
       'cooking_timer',
       'Cooking timer',
       channelDescription: 'Alerts when a cooking timer has finished.',
       importance: Importance.high,
       priority: Priority.high,
     ),
-    iOS: const DarwinNotificationDetails(presentSound: true),
-    windows: WindowsNotificationDetails(),
+    iOS: DarwinNotificationDetails(presentSound: true),
+    windows: const WindowsNotificationDetails(),
   );
 
   Future<void> init() async {
@@ -43,15 +43,15 @@ class NotificationService {
     try {
       tz_data.initializeTimeZones();
 
-      final settings = InitializationSettings(
-        android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
+      final settings = const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         // Permission is requested later, when the user starts a timer.
-        iOS: const DarwinInitializationSettings(
+        iOS: DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,
           requestSoundPermission: false,
         ),
-        windows: WindowsInitializationSettings(
+        windows: const WindowsInitializationSettings(
           appName: 'CookMore',
           appUserModelId: 'Dk.CookMore.App',
           guid: '5b6f2c1e-8d3a-4f7b-9c2e-1a4d6e8f0b3c',
@@ -79,8 +79,7 @@ class NotificationService {
       if (Platform.isIOS) {
         final ios = _plugin.resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin>();
-        return await ios?.requestPermissions(alert: true, sound: true) ??
-            false;
+        return await ios?.requestPermissions(alert: true, sound: true) ?? false;
       }
       return true;
     } catch (error) {
@@ -134,6 +133,7 @@ class NotificationService {
     }
   }
 
-  String _bodyFor(String label) =>
-      label.isEmpty ? 'Your cooking timer is done.' : '$label is ready to check!';
+  String _bodyFor(String label) => label.isEmpty
+      ? 'Your cooking timer is done.'
+      : '$label is ready to check!';
 }

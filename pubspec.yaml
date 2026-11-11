@@ -1,0 +1,46 @@
+name: cookmore
+description: "CookMore - find recipes by theme or by the ingredients you already have."
+publish_to: 'none'
+
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management (MVVM view models via ChangeNotifier).
+  provider: ^6.1.2
+
+  # HTTPS communication with TheMealDB.
+  http: ^1.2.2
+
+  # Local storage (SQLite). FFI + bundled SQLite is used on Windows/Linux.
+  sqflite: ^2.4.1
+  sqflite_common_ffi: ^2.3.4
+  sqlite3_flutter_libs: ^0.5.28
+  path: ^1.9.0
+  path_provider: ^2.1.5
+
+  # Native features: local notifications (cooking timer) and the share sheet.
+  flutter_local_notifications: ^19.4.0
+  timezone: ^0.10.0
+  share_plus: ^11.0.0
+
+  # Online/offline detection for cloud sync.
+  connectivity_plus: ^6.1.4
+
+  # Cloud backup: anonymous authentication + Firestore.
+  firebase_core: ^4.0.0
+  firebase_auth: ^6.0.0
+  cloud_firestore: ^6.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

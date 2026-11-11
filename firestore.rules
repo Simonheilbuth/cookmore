@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// Security rules for CookMore's cloud backup.
+//
+// Every installation signs in with Firebase Anonymous Authentication.
+// A signed-in user can only read and write documents under their own uid,
+// so one user can never access another user's profiles.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid}/profiles/{profileId} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+
+      // Basic validation of what may be written.
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() >= 2
+        && request.resource.data.nickname.size() <= 20
+        && request.resource.data.favourites is list
+        && request.resource.data.favourites.size() <= 500
+        && request.resource.data.pantry is list
+        && request.resource.data.pantry.size() <= 50
+        && request.resource.data.shoppingList is list
+        && request.resource.data.shoppingList.size() <= 500;
+    }
+
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

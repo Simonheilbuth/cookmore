@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -40,6 +41,7 @@ class CookMoreApp extends StatelessWidget {
             theme: AppTheme.light,
             darkTheme: AppTheme.dark,
             themeMode: _themeMode(profile?.themePreference),
+            scrollBehavior: const _DragWithMouseScrollBehavior(),
             home: session.isLoading
                 ? const Scaffold(body: LoadingView())
                 : profile == null
@@ -63,4 +65,18 @@ class CookMoreApp extends StatelessWidget {
         return ThemeMode.system;
     }
   }
+}
+
+/// Lets lists be dragged with the mouse as well as with a finger.
+///
+/// By default Flutter only allows touch, stylus and trackpad dragging, so on
+/// Windows horizontal lists (like the theme chips) could not be scrolled.
+class _DragWithMouseScrollBehavior extends MaterialScrollBehavior {
+  const _DragWithMouseScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        ...super.dragDevices,
+        PointerDeviceKind.mouse,
+      };
 }

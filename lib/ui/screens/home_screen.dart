@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -155,7 +156,7 @@ class _HomeViewState extends State<_HomeView> {
 }
 
 /// A horizontally scrolling row of theme chips.
-class _ThemeRow extends StatelessWidget {
+class _ThemeRow extends StatefulWidget {
   const _ThemeRow({
     required this.title,
     required this.kind,
@@ -167,29 +168,63 @@ class _ThemeRow extends StatelessWidget {
   final List<String> names;
 
   @override
+  State<_ThemeRow> createState() => _ThemeRowState();
+}
+
+class _ThemeRowState extends State<_ThemeRow> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// On desktop, a normal (vertical) mouse wheel scrolls the row sideways.
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || !_scroll.hasClients) return;
+    final delta =
+        event.scrollDelta.dy != 0 ? event.scrollDelta.dy : event.scrollDelta.dx;
+    if (delta == 0) return;
+    GestureBinding.instance.pointerSignalResolver.register(event, (_) {
+      final position = _scroll.position;
+      _scroll.jumpTo((position.pixels + delta)
+          .clamp(position.minScrollExtent, position.maxScrollExtent));
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final title = widget.title;
+    final kind = widget.kind;
+    final names = widget.names;
     if (names.isEmpty) return const SizedBox.shrink();
     final vm = context.watch<HomeViewModel>();
     return SizedBox(
       height: 48,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        itemCount: names.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return Center(
-              child: Text(title, style: Theme.of(context).textTheme.labelLarge),
+      child: Listener(
+        onPointerSignal: _onPointerSignal,
+        child: ListView.separated(
+          controller: _scroll,
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          itemCount: names.length + 1,
+          separatorBuilder: (_, __) => const SizedBox(width: 6),
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return Center(
+                child:
+                    Text(title, style: Theme.of(context).textTheme.labelLarge),
+              );
+            }
+            final theme = RecipeTheme(kind, names[index - 1]);
+            return ChoiceChip(
+              label: Text(theme.name),
+              selected: vm.selectedTheme == theme,
+              onSelected: (_) => vm.selectTheme(theme),
             );
-          }
-          final theme = RecipeTheme(kind, names[index - 1]);
-          return ChoiceChip(
-            label: Text(theme.name),
-            selected: vm.selectedTheme == theme,
-            onSelected: (_) => vm.selectTheme(theme),
-          );
-        },
+          },
+        ),
       ),
     );
   }

@@ -53,10 +53,23 @@ class MealDbApi {
     return _readNames(items, 'strCategory');
   }
 
-  /// Names of all cuisines ("areas"), e.g. "Italian", "Mexican".
+  /// Names of all cuisines ("areas") that actually have recipes,
+  /// e.g. "Italian", "Mexican", "France".
+  ///
+  /// TheMealDB's `list.php?a=list` is not used: it returns ~195 countries,
+  /// most without any recipes, and misses areas such as "France" or
+  /// "India" that recipes really use. Instead, the areas are collected from
+  /// the recipes themselves by searching every first letter a-z.
   Future<List<String>> fetchAreas() async {
-    final items = await _getList('list.php', {'a': 'list'});
-    return _readNames(items, 'strArea');
+    const letters = 'abcdefghijklmnopqrstuvwxyz';
+    final results = await Future.wait(
+      letters.split('').map((letter) => _getList('search.php', {'f': letter})),
+    );
+    final areas = <String>{
+      for (final items in results) ..._readNames(items, 'strArea'),
+    }.toList()
+      ..sort();
+    return areas;
   }
 
   Future<List<RecipeSummary>> filterByCategory(String category) =>

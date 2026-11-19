@@ -16,12 +16,6 @@ create table if not exists public.profile_backups (
   primary key (user_id, profile_id)
 );
 
--- Newer Supabase projects do not give the API roles access to new tables
--- automatically. Signed-in users (anonymous users count as "authenticated")
--- need table privileges; the RLS policies below still limit them to own rows.
--- "anon" (not signed in) gets no access at all.
-grant select, insert, update, delete on public.profile_backups to authenticated;
-
 -- Without RLS every user could read every row. With RLS and no matching
 -- policy, nothing is allowed. The policies below open up only own rows.
 alter table public.profile_backups enable row level security;

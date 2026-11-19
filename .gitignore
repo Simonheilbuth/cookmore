@@ -39,5 +39,6 @@ app.*.map.json
 /android/app/release
 
 # Local secrets – never commit these
+supabase.json
 *.env
 secrets.json

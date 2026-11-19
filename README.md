@@ -15,7 +15,7 @@ Built with Flutter and Dart in VS Code for the course *App-programmering – Cro
 | Must | "What can I cook?" – up to 5 ingredients, results ranked by matches | ✅ |
 | Must | Recipe detail with ingredients, steps and favourites (SQLite) | ✅ |
 | Must | Cooking timer with local notifications (native) | ✅ |
-| Must | Cloud backup to Firestore with offline queue | ✅ |
+| Must | Cloud backup to Supabase with offline queue | ✅ |
 | Must | Adaptive layout: phone vs. tablet/desktop (list + detail) | ✅ |
 | Should | My pantry – shows which ingredients you have / are missing | ✅ |
 | Should | Shopping list – add missing ingredients, share the list | ✅ |
@@ -55,27 +55,34 @@ flutter run            # Android emulator / phone
 > **Windows tip:** If Flutter says *"Building with plugins requires symlink support"*,
 > turn on **Developer Mode** in Windows Settings → System → For developers.
 
-The app works fully without Firebase. Cloud backup is simply shown as
+The app works fully without Supabase. Cloud backup is simply shown as
 "not set up" on the Profile screen until you complete the next section.
 
-### Optional: enable cloud backup (Firebase)
+### Optional: enable cloud backup (Supabase)
 
-1. Create a project at <https://console.firebase.google.com>.
-2. **Authentication → Sign-in method →** enable **Anonymous**.
-3. **Firestore Database →** create a database, then open **Rules** and paste
-   the contents of [`firestore.rules`](firestore.rules) and publish.
-4. In the project folder:
-   ```bash
-   npm install -g firebase-tools        # once
-   firebase login
-   dart pub global activate flutterfire_cli
-   flutterfire configure --platforms=android,ios,windows
-   ```
-   This replaces `lib/firebase_options.dart` with your project's settings.
-5. Run the app again. The Profile screen should now say *"Your profile is backed up."*
+CookMore backs up profiles to [Supabase](https://supabase.com), a hosted
+PostgreSQL database. The Flutter package is plain Dart over HTTPS, so it builds
+the same way on Android and Windows (no large native SDK).
 
-The first Windows build with Firebase downloads the Firebase C++ SDK and can
-take several minutes.
+1. Create a free project at <https://supabase.com/dashboard>.
+2. **Authentication → Sign In / Providers →** turn on **Allow anonymous sign-ins**.
+3. **SQL Editor → New query →** paste the contents of
+   [`supabase/schema.sql`](supabase/schema.sql) and click **Run**. This creates
+   the `profile_backups` table and the Row Level Security policies.
+4. **Project Settings → API (or API Keys) →** copy the **Project URL** and the
+   **anon / publishable** key.
+5. Copy `supabase.example.json` to `supabase.json` (same folder) and paste in the
+   two values. `supabase.json` is listed in `.gitignore`, so it is never committed.
+6. Run the app with the values:
+   * VS Code: choose **"CookMore + Supabase"** in the Run and Debug panel, then F5.
+   * Terminal: `flutter run --dart-define-from-file=supabase.json`
+7. The Profile screen should now say *"Your profile is backed up."* You can see
+   the rows in the dashboard under **Table Editor → profile_backups**.
+
+After changing `pubspec.yaml` (Firebase was replaced by Supabase), run
+`flutter pub get` and stop/start the app once. The files
+`lib/firebase_options.dart` and `firestore.rules` are no longer used and can be
+deleted.
 
 ### Using a private TheMealDB key
 
@@ -95,7 +102,7 @@ simple manual dependency injection in `lib/app_services.dart`.
 UI (screens, widgets)  →  ViewModels (ChangeNotifier)  →  Repositories  →  Services
                                                                             ├─ MealDbApi        (HTTPS / TheMealDB)
                                                                             ├─ LocalDatabase    (SQLite)
-                                                                            ├─ CloudBackupService (Firebase)
+                                                                            ├─ CloudBackupService (Supabase)
                                                                             └─ NotificationService (native)
 ```
 
@@ -104,7 +111,7 @@ lib/
 ├── main.dart, app.dart, app_services.dart   start-up, providers, dependency wiring
 ├── config/          app_config.dart (URLs, keys via --dart-define, limits)
 ├── models/          Recipe, Profile, ShoppingItem + safe JSON parsing
-├── services/        API client, SQLite, notifications, Firebase, sync, RecipeMatcher
+├── services/        API client, SQLite, notifications, Supabase, sync, RecipeMatcher
 ├── repositories/    Profile, Recipe, Favourites, Pantry, ShoppingList
 ├── viewmodels/      one view model per screen + session and timer
 ├── ui/
@@ -114,7 +121,8 @@ lib/
 └── utils/           validators
 test/                unit tests (matcher, validators, JSON parsing) + widget tests
 tool/                configure_platforms.dart
-firestore.rules      Firestore security rules
+supabase/schema.sql  Supabase table + Row Level Security policies
+supabase.example.json  template for supabase.json (URL + anon key)
 ```
 
 `RecipeMatcher` (`lib/services/recipe_matcher.dart`) is plain Dart with no
@@ -139,7 +147,7 @@ tablet emulator, and the Windows app resized between narrow and wide.
 * The last 30 viewed recipes are cached, so they can be opened offline.
 * Every local change is also written to a `pending_sync` table. When the device
   is online, `SyncService` uploads a snapshot of each changed profile to
-  Firestore (*last write wins*). Failed uploads stay in the queue and are retried
+  Supabase (*last write wins*). Failed uploads stay in the queue and are retried
   when the connection comes back.
 * Without internet, Home shows recently viewed recipes with an offline banner,
   and searches show a clear message instead of an error.
@@ -148,10 +156,10 @@ tablet emulator, and the Windows app resized between narrow and wide.
 
 | Risk | How it is handled |
 |---|---|
-| Data intercepted in transit | Only HTTPS is used (TheMealDB, Firebase). `MealDbApi` refuses non-HTTPS URLs and image URLs from the API must be HTTPS. |
-| One user reading another user's data | Anonymous Firebase Auth gives each installation a uid. `firestore.rules` only allows access to `users/{own uid}/…`. |
+| Data intercepted in transit | Only HTTPS is used (TheMealDB, Supabase). The Supabase URL must start with `https://`. `MealDbApi` refuses non-HTTPS URLs and image URLs from the API must be HTTPS. |
+| One user reading another user's data | Supabase Anonymous Sign-in gives each installation its own user id. Row Level Security in `supabase/schema.sql` only allows a user to read and change rows with their own `user_id`. |
 | Profiles without passwords | Profiles hold no sensitive data (nickname, avatar, preferences, recipe lists). The app tells the user not to enter personal information. |
-| Secrets in source code | No passwords or private keys in the code. The API key is read from `--dart-define`; Firebase config files contain public identifiers protected by the security rules. |
+| Secrets in source code | No passwords or private keys in the code. API keys are read from `--dart-define` / `supabase.json` (git-ignored). The Supabase anon key is designed to be public; data access is protected by Row Level Security. |
 | Invalid or malicious input | User input is validated (`Validators`: length, allowed characters, max 5 ingredients). API JSON is type-checked and length-limited (`json_utils.dart`). SQL uses parameterised queries. |
 | Leaking technical details | Users see friendly messages. Technical errors are only logged with `debugPrint`. |
 | Unnecessary permissions | Only notifications are requested, and only when a timer is started for the first time. |

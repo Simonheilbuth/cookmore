@@ -32,10 +32,8 @@ dependencies:
   # Online/offline detection for cloud sync.
   connectivity_plus: ^6.1.4
 
-  # Cloud backup: anonymous authentication + Firestore.
-  firebase_core: ^4.0.0
-  firebase_auth: ^6.0.0
-  cloud_firestore: ^6.0.0
+  # Cloud backup: Supabase (anonymous sign-in + PostgreSQL with Row Level Security).
+  supabase_flutter: ^2.9.0
 
 dev_dependencies:
   flutter_test:

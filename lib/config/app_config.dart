@@ -26,6 +26,23 @@ class AppConfig {
     defaultValue: '1',
   );
 
+  /// URL of the Supabase project used for cloud backup, e.g.
+  /// "https://abcd1234.supabase.co". Empty means cloud backup is off.
+  ///
+  /// Supplied at build time from supabase.json (not committed to Git):
+  /// `flutter run --dart-define-from-file=supabase.json`
+  static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+
+  /// Supabase "anon" (publishable) key. It identifies the project and is
+  /// meant to be used in apps; access to data is protected by Row Level
+  /// Security in the database, not by keeping this key secret.
+  static const String supabaseAnonKey =
+      String.fromEnvironment('SUPABASE_ANON_KEY');
+
+  /// True when both Supabase values are set and the URL uses HTTPS.
+  static bool get isSupabaseConfigured =>
+      supabaseUrl.startsWith('https://') && supabaseAnonKey.isNotEmpty;
+
   /// Maximum time to wait for a network request before giving up.
   static const Duration requestTimeout = Duration(seconds: 10);
 

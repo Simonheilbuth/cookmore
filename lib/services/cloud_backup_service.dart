@@ -1,37 +1,47 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/app_config.dart';
-import '../firebase_options.dart';
 
-/// Backs up profile data to Cloud Firestore.
+/// Backs up profile data to Supabase (a hosted PostgreSQL database).
 ///
-/// Each installation signs in with Firebase Anonymous Authentication, which
-/// gives a user id without any password or e-mail. Data is stored under
-/// `users/{uid}/profiles/{profileId}`, and the Firestore security rules
-/// (firestore.rules) only allow a signed-in user to access their own uid.
+/// Each installation signs in with Supabase Anonymous Sign-in, which gives a
+/// user id without any password or e-mail. Each profile is stored as one row
+/// in the table `profile_backups`. Row Level Security (see
+/// supabase/schema.sql) only lets a signed-in user read and change rows that
+/// carry their own user id.
+///
+/// This is the only class in the app that knows about Supabase. The rest of
+/// the app only uses [isConfigured], [uploadProfile] and [deleteProfile].
 class CloudBackupService {
-  bool _firebaseReady = false;
+  static const String _table = 'profile_backups';
+
+  bool _ready = false;
   String? _setupProblem;
 
-  /// True when Firebase is configured and initialised.
-  bool get isConfigured => _firebaseReady;
+  /// True when Supabase is configured and initialised.
+  bool get isConfigured => _ready;
 
   /// A user-friendly reason why cloud backup is unavailable, if it is.
   String? get setupProblem => _setupProblem;
 
+  SupabaseClient get _client => Supabase.instance.client;
+
   Future<void> init() async {
-    try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-      _firebaseReady = true;
-    } on UnsupportedError {
+    if (!AppConfig.isSupabaseConfigured) {
       _setupProblem = 'Cloud backup is not set up for this build.';
+      return;
+    }
+    try {
+      // Restores a saved session from earlier app starts, so the same
+      // anonymous user is used every time. No network is needed here.
+      await Supabase.initialize(
+        url: AppConfig.supabaseUrl,
+        anonKey: AppConfig.supabaseAnonKey,
+      );
+      _ready = true;
     } catch (error) {
-      debugPrint('CloudBackupService: Firebase init failed: $error');
+      debugPrint('CloudBackupService: Supabase init failed: $error');
       _setupProblem = 'Cloud backup could not be started.';
     }
   }
@@ -39,44 +49,46 @@ class CloudBackupService {
   /// Signs in anonymously if needed and returns the user id.
   /// Throws if the device is offline.
   Future<String> _ensureUserId() async {
-    final auth = FirebaseAuth.instance;
-    final current = auth.currentUser;
-    if (current != null) return current.uid;
-    final credential =
-        await auth.signInAnonymously().timeout(AppConfig.requestTimeout);
-    final user = credential.user;
+    final current = _client.auth.currentUser;
+    if (current != null) return current.id;
+    final response =
+        await _client.auth.signInAnonymously().timeout(AppConfig.requestTimeout);
+    final user = response.user;
     if (user == null) {
       throw StateError('Anonymous sign-in returned no user.');
     }
-    return user.uid;
-  }
-
-  DocumentReference<Map<String, dynamic>> _profileDoc(
-    String uid,
-    String profileId,
-  ) {
-    return FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('profiles')
-        .doc(profileId);
+    return user.id;
   }
 
   /// Uploads a full snapshot of a profile ("last write wins").
+  /// An existing row for the same user and profile is replaced.
   Future<void> uploadProfile(String profileId, Map<String, Object?> data) async {
-    if (!_firebaseReady) return;
-    final uid = await _ensureUserId();
-    await _profileDoc(uid, profileId)
-        .set({...data, 'syncedAt': FieldValue.serverTimestamp()})
+    if (!_ready) return;
+    final userId = await _ensureUserId();
+    await _client
+        .from(_table)
+        .upsert(
+          {
+            'user_id': userId,
+            'profile_id': profileId,
+            'nickname': data['nickname'],
+            'data': data,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          },
+          onConflict: 'user_id,profile_id',
+        )
         .timeout(AppConfig.requestTimeout);
   }
 
   /// Deletes the cloud copy of a profile.
   Future<void> deleteProfile(String profileId) async {
-    if (!_firebaseReady) return;
-    final uid = await _ensureUserId();
-    await _profileDoc(uid, profileId)
+    if (!_ready) return;
+    final userId = await _ensureUserId();
+    await _client
+        .from(_table)
         .delete()
+        .eq('user_id', userId)
+        .eq('profile_id', profileId)
         .timeout(AppConfig.requestTimeout);
   }
 }

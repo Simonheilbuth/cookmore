@@ -8,7 +8,7 @@
 // - AndroidManifest.xml: INTERNET and POST_NOTIFICATIONS permissions and the
 //   receiver flutter_local_notifications uses for scheduled notifications.
 // - app/build.gradle(.kts): core library desugaring (required by
-//   flutter_local_notifications) and minSdk 23 (required by Firebase).
+//   flutter_local_notifications) and minSdk 23 (Android 6.0 or newer).
 //
 // ignore_for_file: avoid_print
 
@@ -100,7 +100,7 @@ bool _patchGradle() {
     text = '${text.trimRight()}\n\ndependencies {\n    $line\n}\n';
   }
 
-  // 3. Firebase needs at least Android 6.0 (API 23).
+  // 3. Require at least Android 6.0 (API 23).
   final minSdkPattern = isKts
       ? RegExp(r'minSdk\s*=\s*flutter\.minSdkVersion')
       : RegExp(r'minSdk(Version)?\s+flutter\.minSdkVersion');
